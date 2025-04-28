@@ -155,7 +155,7 @@ if submit_button:
         def footer(self):
             self.set_y(-15)
             self.set_font('Arial', 'I', 10)
-            self.cell(0, 10, 'Campus Classics • www.campusclassics.com', 0, 0, 'C')
+            self.cell(0, 10, 'Campus Classics - www.campusclassics.com', 0, 0, 'C')
 
     pdf = PDF()
     pdf.add_page()
