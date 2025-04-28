@@ -1,12 +1,13 @@
 import math
 import streamlit as st
+import io
+from fpdf import FPDF
+from datetime import datetime
 
-# Pricing dictionaries moved OUTSIDE the function
-title = "Campus Classics Quick Quote Calculator"
-
+# Updated Pricing dictionaries based on new uploads
 prices = {
     'Comfort Colors Pocket': {'light': (24, 28), 'dark': (26, 30)},
-    'Comfort Colors 1717': {'light': (24, 28), 'dark': (25, 29)},
+    'Comfort Colors 1717': {'light': (23, 27), 'dark': (25, 29)},
     'Port & Co Pocket (PC54P)': {'light': (22, 25), 'dark': (23, 26)},
     'Port & Co Non-Pocket (PC54)': {'light': (21, 24), 'dark': (22, 25)},
     'Tultex 202': {'light': (19, 22), 'dark': (20, 23)},
@@ -30,7 +31,7 @@ embroidery_pricing = [
 placement_fees = {
     'light': {
         'left chest': [2.75, 2.40, 2.05, 1.70],
-        'full front/back': [4.25, 4.00, 2.75, 3.50]
+        'full front/back': [4.25, 4.00, 3.25, 3.50]
     },
     'dark': {
         'left chest': [3.75, 3.40, 3.05, 2.70],
@@ -45,7 +46,7 @@ def calculate_custom_price(garment_type, color, quantity, decoration_method, pla
     color_key = 'any' if 'any' in prices[garment_type] else ('dark' if color.lower() == 'dark' else 'light')
     price_range = prices[garment_type][color_key]
 
-    if quantity < 24:
+    if quantity < 25:
         base_price = price_range[1]
     elif quantity < 51:
         base_price = (price_range[0] + price_range[1]) / 2
@@ -93,7 +94,7 @@ def calculate_custom_price(garment_type, color, quantity, decoration_method, pla
     return round(final_price, 2)
 
 # Streamlit web app
-st.title(title)
+st.title("Campus Classics Quick Quote Calculator")
 
 with st.form(key='quote_form'):
     garment = st.selectbox('Select Garment Type', list(prices.keys()))
@@ -107,4 +108,83 @@ with st.form(key='quote_form'):
 
 if submit_button:
     quote = calculate_custom_price(garment, color, quantity, decoration, placement, stitch_count, extra_ink_cc)
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
     st.success(f"Quick quote: ${quote} per item")
+
+    summary = f"""
+    Campus Classics Quote Summary
+    -----------------------------
+    Date: {now}
+    Garment: {garment}
+    Color: {color.title()}
+    Quantity: {quantity}
+    Decoration Method: {decoration.title()}
+    Placement: {placement.title()}
+    Stitch Count: {stitch_count} (if embroidery)
+    Extra Ink CCs: {extra_ink_cc} (if DTG)
+    Final Price Per Item: ${quote}
+    """
+
+    st.markdown(f"""
+    ### 📋 Quote Summary
+    - **Garment**: {garment}
+    - **Color**: {color.title()}
+    - **Quantity**: {quantity}
+    - **Decoration Method**: {decoration.title()}
+    - **Placement**: {placement.title()}
+    - **Stitch Count**: {stitch_count} (if embroidery)
+    - **Extra Ink CCs**: {extra_ink_cc} (if DTG)
+    - **Final Price Per Item**: **${quote}**
+    - **Date/Time**: {now}
+    """)
+
+    buffer = io.StringIO()
+    buffer.write(summary)
+    buffer.seek(0)
+    st.download_button(
+        label="Download Quote as Text File",
+        data=buffer,
+        file_name="campus_classics_quote.txt",
+        mime="text/plain"
+    )
+
+    class PDF(FPDF):
+        def header(self):
+            try:
+                self.image('logo.png', x=80, y=8, w=50)
+            except:
+                pass
+            self.ln(20)
+            self.set_font('Arial', 'B', 16)
+            self.cell(0, 10, 'Campus Classics Quote Summary', ln=True, align='C')
+            self.ln(10)
+
+        def chapter_title(self, title):
+            self.set_font('Arial', 'B', 12)
+            self.cell(0, 10, title, ln=True, align='L')
+            self.ln(5)
+
+        def chapter_body(self, body):
+            self.set_font('Arial', '', 12)
+            self.multi_cell(0, 10, body)
+
+        def footer(self):
+            self.set_y(-15)
+            self.set_font('Arial', 'I', 10)
+            self.cell(0, 10, 'Campus Classics • www.campusclassics.com', 0, 0, 'C')
+
+    pdf = PDF()
+    pdf.add_page()
+    pdf.chapter_title('Quote Details')
+    pdf.chapter_body(summary)
+
+    pdf_buffer = io.BytesIO()
+    pdf.output(pdf_buffer)
+    pdf_buffer.seek(0)
+
+    st.download_button(
+        label="Download Quote as PDF",
+        data=pdf_buffer,
+        file_name="campus_classics_quote.pdf",
+        mime="application/pdf"
+    )
