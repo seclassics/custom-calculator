@@ -94,4 +94,95 @@ with st.form(key='quote_form'):
     submit_button = st.form_submit_button(label='Calculate Quote')
 
 if submit_button:
-    # (The rest of your existing logic for calculating, displaying, and downloading quotes remains unchanged)
+    quote = calculate_custom_price(garment, color, quantity, decoration, placement, stitch_count, extra_ink_cc)
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    st.success(f"Quick quote: ${quote} per item")
+
+    summary = f"""
+    Campus Classics Quote Summary
+    -----------------------------
+    Date: {now}
+    Customer Name: {customer_name}
+    Event Name: {event_name}
+    Garment: {garment}
+    Color: {color.title()}
+    Quantity: {quantity}
+    Decoration Method: {decoration.title()}
+    Placement: {placement.title()}
+    Stitch Count: {stitch_count} (if embroidery)
+    Extra Ink CCs: {extra_ink_cc} (if DTG)
+    Final Price Per Item: ${quote}
+    """
+
+    st.markdown(f"""
+    ### 📋 Quote Summary
+    - **Customer Name**: {customer_name}
+    - **Event Name**: {event_name}
+    - **Garment**: {garment}
+    - **Color**: {color.title()}
+    - **Quantity**: {quantity}
+    - **Decoration Method**: {decoration.title()}
+    - **Placement**: {placement.title()}
+    - **Stitch Count**: {stitch_count} (if embroidery)
+    - **Extra Ink CCs**: {extra_ink_cc} (if DTG)
+    - **Final Price Per Item**: **${quote}**
+    - **Date/Time**: {now}
+    """)
+
+    # Prepare download filenames
+    clean_customer = customer_name.strip().replace(" ", "_").replace("/", "_")
+    clean_event = event_name.strip().replace(" ", "_").replace("/", "_")
+    file_prefix = f"{clean_customer}_{clean_event}" if clean_customer and clean_event else "campus_classics_quote"
+
+    # Text file download
+    buffer = io.StringIO()
+    buffer.write(summary)
+    buffer.seek(0)
+    st.download_button(
+        label="Download Quote as Text File",
+        data=buffer,
+        file_name=f"{file_prefix}.txt",
+        mime="text/plain"
+    )
+
+    # PDF file download
+    class PDF(FPDF):
+        def header(self):
+            try:
+                self.image('logo.png', x=80, y=8, w=50)
+            except:
+                pass
+            self.ln(20)
+            self.set_font('Arial', 'B', 16)
+            self.cell(0, 10, 'Campus Classics Quote Summary', ln=True, align='C')
+            self.ln(10)
+
+        def chapter_title(self, title):
+            self.set_font('Arial', 'B', 12)
+            self.cell(0, 10, title, ln=True, align='L')
+            self.ln(5)
+
+        def chapter_body(self, body):
+            self.set_font('Arial', '', 12)
+            self.multi_cell(0, 10, body)
+
+        def footer(self):
+            self.set_y(-15)
+            self.set_font('Arial', 'I', 10)
+            self.cell(0, 10, 'Campus Classics • www.campusclassics.com', 0, 0, 'C')
+
+    pdf = PDF()
+    pdf.add_page()
+    pdf.chapter_title('Quote Details')
+    pdf.chapter_body(summary)
+
+    pdf_bytes = pdf.output(dest='S').encode('latin1')
+    pdf_buffer = io.BytesIO(pdf_bytes)
+
+    st.download_button(
+        label="Download Quote as PDF",
+        data=pdf_buffer,
+        file_name=f"{file_prefix}.pdf",
+        mime="application/pdf"
+    )
+
