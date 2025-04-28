@@ -162,12 +162,11 @@ if submit_button:
     pdf.chapter_title('Quote Details')
     pdf.chapter_body(summary)
 
-    pdf_output = pdf.output(dest='S').encode('latin1')
+    pdf_bytes = pdf.output(dest='S').encode('latin1', 'replace')
 
     st.download_button(
         label="Download Quote as PDF",
-        data=pdf_output,
+        data=pdf_bytes,
         file_name=f"{file_prefix}.pdf",
         mime="application/pdf"
     )
-
