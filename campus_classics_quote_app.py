@@ -19,14 +19,11 @@ prices = {
     'Sportsman Hat (AH35)': {'any': (23, 25)},
 }
 
-embroidery_pricing = [
-    (2000, [7.75, 3.91, 3.45, 3.06, 2.88, 2.41]),
-    (4000, [9.08, 5.11, 4.37, 3.45, 3.22, 2.76]),
-    (6000, [9.95, 5.87, 4.95, 4.03, 3.57, 3.22]),
-    (8000, [10.29, 6.32, 5.29, 4.37, 4.03, 3.57]),
-    (10000, [10.93, 6.90, 5.87, 4.89, 4.60, 4.03]),
-    (12000, [11.50, 7.89, 6.32, 5.40, 4.95, 4.30]),
-]
+heatseal_prices = {
+    'left chest': [(24, 0.36), (49, 0.33), (99, 0.30), (249, 0.27), (99999, 0.24)],
+    'full back large': [(24, 8.64), (49, 7.92), (99, 7.20), (249, 6.48), (99999, 5.76)],
+    'full back small': [(24, 7.20), (49, 6.60), (99, 6.00), (249, 5.40), (99999, 4.80)]
+}
 
 placement_fees = {
     'light': {
@@ -39,44 +36,16 @@ placement_fees = {
     }
 }
 
-def calculate_custom_price(garment_type, color, quantity, decoration_method, placement='left chest', stitch_count=0, extra_ink_cc=0):
-    color_key = 'any' if 'any' in prices[garment_type] else ('dark' if color.lower() == 'dark' else 'light')
-    price_range = prices[garment_type][color_key]
-
-    if quantity < 25:
-        base_price = price_range[1]
-    elif quantity < 51:
-        base_price = (price_range[0] + price_range[1]) / 2
-    elif quantity < 145:
-        base_price = price_range[0] * 0.95
+def get_heatseal_cost(placement, quantity):
+    if placement == 'left chest':
+        table = heatseal_prices['left chest']
+    elif placement == 'full back large':
+        table = heatseal_prices['full back large']
     else:
-        base_price = price_range[0] * 0.90
-
-    final_price = base_price
-
-    if decoration_method.lower() == 'embroidery':
-        stitch_bracket = next((pricing for limit, pricing in embroidery_pricing if stitch_count <= limit), embroidery_pricing[-1][1])
-        if quantity < 6:
-            embroidery_cost = stitch_bracket[0]
-        elif quantity < 25:
-            embroidery_cost = stitch_bracket[1]
-        elif quantity < 73:
-            embroidery_cost = stitch_bracket[2]
-        elif quantity < 145:
-            embroidery_cost = stitch_bracket[3]
-        elif quantity < 289:
-            embroidery_cost = stitch_bracket[4]
-        else:
-            embroidery_cost = stitch_bracket[5]
-        final_price += embroidery_cost
-
-    elif decoration_method.lower() in ['screenprint', 'dtg']:
-        placement_options = placement_fees[color_key]
-        placement_cost = placement_options[placement.lower()][0] if quantity < 25 else placement_options[placement.lower()][1] if quantity < 51 else placement_options[placement.lower()][2] if quantity < 145 else placement_options[placement.lower()][3]
-        ink_surcharge = max(0, extra_ink_cc - 7) * 1.0 if color_key == 'dark' else 0
-        final_price += placement_cost + ink_surcharge
-
-    return round(final_price, 2)
+        table = heatseal_prices['full back small']
+    for max_qty, price in table:
+        if quantity <= max_qty:
+            return price
 
 # Streamlit web app
 st.title("Campus Classics Quick Quote Calculator")
@@ -87,22 +56,57 @@ with st.form(key='quote_form'):
     garment = st.selectbox('Select Garment Type', list(prices.keys()))
     color = st.selectbox('Select Garment Color', ['light', 'dark'])
     quantity = st.number_input('Enter Quantity', min_value=1, value=24)
-    decoration = st.selectbox('Decoration Method', ['screenprint', 'dtg', 'embroidery'])
-    placement = st.selectbox('Placement (for screenprint/DTG)', ['left chest', 'full front/back'])
-    stitch_count = st.number_input('Stitch Count (for embroidery)', min_value=0, value=0)
-    extra_ink_cc = st.number_input('Extra Ink CCs over 7 (for DTG)', min_value=0, value=0)
+    is_heatseal = st.radio('Use Heatseal for Front?', ['No', 'Yes'])
+
+    if is_heatseal == 'No':
+        decoration = st.selectbox('Decoration Method', ['screenprint', 'dtg', 'embroidery'])
+    else:
+        decoration = 'heatseal'
+
+    if 'Hat' in garment:
+        placement = st.selectbox('Placement', ['front'])
+    else:
+        placement = st.selectbox('Placement', ['left chest', 'full front large', 'full back small'])
+
     submit_button = st.form_submit_button(label='Calculate Quote')
 
 if submit_button:
-    quote = calculate_custom_price(garment, color, quantity, decoration, placement, stitch_count, extra_ink_cc)
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-    st.success(f"Quick quote: ${quote} per item")
+    color_key = 'any' if 'any' in prices[garment] else ('dark' if color.lower() == 'dark' else 'light')
+    price_range = prices[garment][color_key]
+
+    if quantity < 25:
+        base_price = price_range[1]
+    elif quantity < 51:
+        base_price = (price_range[0] + price_range[1]) / 2
+    elif quantity < 145:
+        base_price = price_range[0] * 0.95
+    else:
+        base_price = price_range[0] * 0.90
+
+    if is_heatseal == 'Yes':
+        add_cost = get_heatseal_cost(placement if placement != 'front' else 'left chest', quantity)
+    else:
+        placement_key = 'full front/back' if 'full' in placement else 'left chest'
+        if quantity < 25:
+            add_cost = placement_fees[color_key][placement_key][0]
+        elif quantity < 51:
+            add_cost = placement_fees[color_key][placement_key][1]
+        elif quantity < 145:
+            add_cost = placement_fees[color_key][placement_key][2]
+        else:
+            add_cost = placement_fees[color_key][placement_key][3]
+
+    final_price = round(base_price + add_cost, 2)
+
+    st.success(f"Quick quote: ${final_price} per item")
+
+    clean_customer = customer_name.strip().replace(" ", "_").replace("/", "_")
+    clean_event = event_name.strip().replace(" ", "_").replace("/", "_")
+    file_prefix = f"{clean_customer}_{clean_event}" if clean_customer and clean_event else "campus_classics_quote"
 
     summary = f"""
-    Campus Classics Quote Summary
-    -----------------------------
-    Date: {now}
     Customer Name: {customer_name}
     Event Name: {event_name}
     Garment: {garment}
@@ -110,16 +114,9 @@ if submit_button:
     Quantity: {quantity}
     Decoration Method: {decoration.title()}
     Placement: {placement.title()}
-    Stitch Count: {stitch_count} (if embroidery)
-    Extra Ink CCs: {extra_ink_cc} (if DTG)
-    Final Price Per Item: ${quote}
+    Final Price Per Item: ${final_price}
+    Date: {now}
     """
-
-    st.text_area("Quote Summary", summary, height=250)
-
-    clean_customer = customer_name.strip().replace(" ", "_").replace("/", "_")
-    clean_event = event_name.strip().replace(" ", "_").replace("/", "_")
-    file_prefix = f"{clean_customer}_{clean_event}" if clean_customer and clean_event else "campus_classics_quote"
 
     buffer = io.StringIO()
     buffer.write(summary)
@@ -138,15 +135,10 @@ if submit_button:
                 self.image('logo.png', x=80, y=8, w=50)
             except:
                 pass
-            self.ln(20)
-            self.set_font('Arial', 'B', 16)
+            self.ln(35)
+            self.set_font('Arial', 'B', 14)
             self.cell(0, 10, 'Campus Classics Quote Summary', ln=True, align='C')
             self.ln(10)
-
-        def chapter_title(self, title):
-            self.set_font('Arial', 'B', 12)
-            self.cell(0, 10, title, ln=True, align='L')
-            self.ln(5)
 
         def chapter_body(self, body):
             self.set_font('Arial', '', 12)
@@ -159,7 +151,6 @@ if submit_button:
 
     pdf = PDF()
     pdf.add_page()
-    pdf.chapter_title('Quote Details')
     pdf.chapter_body(summary)
 
     pdf_bytes = pdf.output(dest='S').encode('latin1', 'replace')
