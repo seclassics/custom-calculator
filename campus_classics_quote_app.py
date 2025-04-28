@@ -54,17 +54,27 @@ with st.form(key='quote_form'):
     customer_name = st.text_input('Customer Name')
     event_name = st.text_input('Event Name')
     garment = st.selectbox('Select Garment Type', list(prices.keys()))
-    color = st.selectbox('Select Garment Color', ['light', 'dark'])
-    quantity = st.number_input('Enter Quantity', min_value=1, value=24)
-    is_heatseal = st.radio('Use Heatseal for Front?', ['No', 'Yes'])
 
-    if is_heatseal == 'No':
-        decoration = st.selectbox('Decoration Method', ['screenprint', 'dtg', 'embroidery'])
+    is_polo_or_hat = any(keyword in garment for keyword in ['Polo', 'Hat'])
+
+    if not is_polo_or_hat:
+        color = st.selectbox('Select Garment Color', ['light', 'dark'])
+        is_heatseal = st.radio('Use Heatseal for Front?', ['No', 'Yes'])
+        if is_heatseal == 'No':
+            decoration = st.selectbox('Decoration Method', ['screenprint', 'dtg', 'embroidery'])
+        else:
+            decoration = 'heatseal'
     else:
-        decoration = 'heatseal'
+        color = 'light'
+        is_heatseal = 'No'
+        decoration = 'embroidery'
+
+    quantity = st.number_input('Enter Quantity', min_value=1, value=24)
 
     if 'Hat' in garment:
         placement = st.selectbox('Placement', ['front'])
+    elif 'Polo' in garment:
+        placement = st.selectbox('Placement', ['left chest', 'right sleeve'])
     else:
         placement = st.selectbox('Placement', ['left chest', 'full front large', 'full back small'])
 
@@ -73,8 +83,9 @@ with st.form(key='quote_form'):
 if submit_button:
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-    color_key = 'any' if 'any' in prices[garment] else ('dark' if color.lower() == 'dark' else 'light')
-    price_range = prices[garment][color_key]
+    color_key = 'dark' if color.lower() == 'dark' else 'light'
+
+    price_range = prices[garment]['any'] if 'any' in prices[garment] else prices[garment][color_key]
 
     if quantity < 25:
         base_price = price_range[1]
