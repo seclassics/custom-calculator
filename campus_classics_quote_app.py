@@ -96,6 +96,7 @@ with st.form(key='quote_form'):
 if submit_button:
     quote = calculate_custom_price(garment, color, quantity, decoration, placement, stitch_count, extra_ink_cc)
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
+
     st.success(f"Quick quote: ${quote} per item")
 
     summary = f"""
@@ -114,38 +115,23 @@ if submit_button:
     Final Price Per Item: ${quote}
     """
 
-    st.markdown(f"""
-    ### 📋 Quote Summary
-    - **Customer Name**: {customer_name}
-    - **Event Name**: {event_name}
-    - **Garment**: {garment}
-    - **Color**: {color.title()}
-    - **Quantity**: {quantity}
-    - **Decoration Method**: {decoration.title()}
-    - **Placement**: {placement.title()}
-    - **Stitch Count**: {stitch_count} (if embroidery)
-    - **Extra Ink CCs**: {extra_ink_cc} (if DTG)
-    - **Final Price Per Item**: **${quote}**
-    - **Date/Time**: {now}
-    """)
+    st.text_area("Quote Summary", summary, height=250)
 
-    # Prepare download filenames
     clean_customer = customer_name.strip().replace(" ", "_").replace("/", "_")
     clean_event = event_name.strip().replace(" ", "_").replace("/", "_")
     file_prefix = f"{clean_customer}_{clean_event}" if clean_customer and clean_event else "campus_classics_quote"
 
-    # Text file download
     buffer = io.StringIO()
     buffer.write(summary)
     buffer.seek(0)
+
     st.download_button(
         label="Download Quote as Text File",
-        data=buffer,
+        data=buffer.getvalue(),
         file_name=f"{file_prefix}.txt",
         mime="text/plain"
     )
 
-    # PDF file download
     class PDF(FPDF):
         def header(self):
             try:
@@ -176,12 +162,11 @@ if submit_button:
     pdf.chapter_title('Quote Details')
     pdf.chapter_body(summary)
 
-    pdf_bytes = pdf.output(dest='S').encode('latin1')
-    pdf_buffer = io.BytesIO(pdf_bytes)
+    pdf_output = pdf.output(dest='S').encode('latin1')
 
     st.download_button(
         label="Download Quote as PDF",
-        data=pdf_buffer,
+        data=pdf_output,
         file_name=f"{file_prefix}.pdf",
         mime="application/pdf"
     )
